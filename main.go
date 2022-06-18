@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -32,16 +31,43 @@ func init() {
 	}
 }
 
+func CORS(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers for the preflight request
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Set CORS headers for the main request.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Fprint(w, "Hello, World!")
+}
+
 func Data(w http.ResponseWriter, r *http.Request) {
-	clientID, clientSecret, ok := r.BasicAuth()
-	if ok == false {
-		w.WriteHeader(http.StatusInternalServerError)
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if clientID != os.Getenv("id") || clientSecret != os.Getenv("secret") {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
+	// Set CORS headers for the main request.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
+	// clientID, clientSecret, ok := r.BasicAuth()
+	// if ok == false {
+	// 	w.WriteHeader(http.StatusUnauthorized)
+	// 	return
+	// }
+	// if clientID != os.Getenv("id") || clientSecret != os.Getenv("secret") {
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	return
+	// }
 	switch r.Method {
 	case http.MethodGet:
 		DataGet(w, r)
@@ -50,8 +76,8 @@ func Data(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		DataDelete(w, r)
 	default:
-		fmt.Fprintln(w, "そんなメソッドねえよ")
 		w.WriteHeader(http.StatusNotImplemented)
+		fmt.Fprintln(w, "そんなメソッドねえよ")
 	}
 }
 
@@ -78,6 +104,7 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, string(out))
 }
 func DataPost(w http.ResponseWriter, r *http.Request) {
