@@ -95,7 +95,7 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var data []map[string]interface{}
+	data := make([]map[string]interface{}, 0)
 	for _, doc := range docs {
 		data = append(data, doc.Data())
 	}
