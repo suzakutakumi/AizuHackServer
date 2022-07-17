@@ -73,6 +73,8 @@ func Data(w http.ResponseWriter, r *http.Request) {
 		DataGet(w, r)
 	case http.MethodPost:
 		DataPost(w, r)
+	case http.MethodPatch:
+		DataPatch(w, r)
 	case http.MethodDelete:
 		DataDelete(w, r)
 	default:
@@ -83,29 +85,47 @@ func Data(w http.ResponseWriter, r *http.Request) {
 
 func DataGet(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	col := query["collection"]
-	if len(col) != 1 {
+	queryCol := query["collection"]
+	if len(queryCol) != 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	colName := col[0]
+	col := queryCol[0]
 
-	docs, err := client.Collection(colName).Documents(ctx).GetAll()
-	if err != nil {
+	queryId := query["id"]
+	queryKey := query["key"]
+	if len(queryId) == 0 && len(queryKey) == 0 {
+		docs, err := client.Collection(col).Documents(ctx).GetAll()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		var data []map[string]interface{}
+		for _, doc := range docs {
+			data = append(data, doc.Data())
+		}
+		out, err := json.Marshal(data)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, string(out))
+	} else if len(queryId) == 1 && len(queryKey) == 1 {
+		id := queryId[0]
+		key := queryKey[0]
+		doc, err := client.Collection(col).Doc(id).Get(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		data := doc.Data()
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, data[key])
+	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var data []map[string]interface{}
-	for _, doc := range docs {
-		data = append(data, doc.Data())
-	}
-	out, err := json.Marshal(data)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, string(out))
 }
 func DataPost(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
@@ -140,6 +160,41 @@ func DataPost(w http.ResponseWriter, r *http.Request) {
 	})
 	w.WriteHeader(http.StatusOK)
 }
+
+func DataPatch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	queryCol := query["collection"]
+	if len(queryCol) != 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	col := queryCol[0]
+
+	queryId := query["id"]
+	queryKey := query["key"]
+	if len(queryId) == 1 && len(queryKey) == 1 {
+		id := queryId[0]
+		key := queryKey[0]
+		bufbody := new(bytes.Buffer)
+		bufbody.ReadFrom(r.Body)
+		body := bufbody.Bytes()
+		_, err := client.Collection(col).Doc(id).Update(ctx, []firestore.Update{
+			{
+				Path:  key,
+				Value: string(body),
+			},
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
 func DataDelete(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	col := query["collection"]
